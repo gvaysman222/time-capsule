@@ -1,7 +1,7 @@
 import telebot
 import sqlite3
 import uuid
-from TeamScripts.qwiz import start_survey, handle_survey_response
+from TeamScripts.qwiz import start_survey, handle_survey_response, active_surveys
 
 
 # Токен вашего бота (замените на ваш)
@@ -207,6 +207,10 @@ def quiz_command(message):
 
     # Запускаем анкетирование
     start_survey(bot, message, team_name)
+
+@bot.message_handler(func=lambda message: message.chat.id in active_surveys)
+def survey_response_handler(message):
+    handle_survey_response(bot, message)
 
 # Запуск бота
 if __name__ == '__main__':
