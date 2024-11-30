@@ -1,6 +1,7 @@
 from telebot import types
 import sqlite3
 import json
+from Commons.GoogleSheetWorker import write_responses_to_sheet
 
 # Подключение к базе данных
 def get_db_connection():
@@ -77,7 +78,16 @@ def save_survey_responses(user_id, team_name, responses):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Получаем идентификатор команды
+    # Получаем имя пользователя
+    cursor.execute("SELECT * FROM users WHERE chat_id = ?", (user_id,))
+    user = cursor.fetchone()
+    user_name = f"Пользователь {user_id}" if not user else user["chat_id"]
+
+    # Сохраняем ответы в Google Таблицы
+    answers = list(zip(QUESTIONS, responses))  # Формируем пары Вопрос-Ответ
+    write_responses_to_sheet(team_name, user_name, answers)
+
+    # Также сохраняем в локальной базе данных
     cursor.execute("SELECT id FROM teams WHERE team_name = ?", (team_name,))
     team = cursor.fetchone()
     if not team:
@@ -86,7 +96,6 @@ def save_survey_responses(user_id, team_name, responses):
     team_id = team["id"]
     responses_json = json.dumps(responses)
 
-    # Сохраняем ответы в таблицу responses
     cursor.execute(
         "INSERT INTO responses (team_id, user_id, response_data) VALUES (?, ?, ?)",
         (team_id, user_id, responses_json)
