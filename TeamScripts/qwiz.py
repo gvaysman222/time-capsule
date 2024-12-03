@@ -84,8 +84,7 @@ def save_survey_responses(user_id, team_name, responses):
     user_name = f"Пользователь {user_id}" if not user else user["chat_id"]
 
     # Сохраняем ответы в Google Таблицы
-    answers = list(zip(QUESTIONS, responses))  # Формируем пары Вопрос-Ответ
-    write_responses_to_sheet(team_name, user_name, answers)
+    write_responses_to_sheet(team_name, user_name, responses)
 
     # Также сохраняем в локальной базе данных
     cursor.execute("SELECT id FROM teams WHERE team_name = ?", (team_name,))
