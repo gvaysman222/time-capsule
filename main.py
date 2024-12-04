@@ -3,10 +3,10 @@ import sqlite3
 import uuid
 import json
 from TeamScripts.qwiz import start_survey, handle_survey_response, active_surveys
-
+from openai import OpenAI
 
 # Токен вашего бота (замените на ваш)
-BOT_TOKEN = "8172850469:AAEq_qPudr2H27sogDEQvRcqTwucqNMq-1E"
+BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Функция для подключения к базе данных
@@ -297,17 +297,19 @@ def process_survey_results(team_name):
     cursor.execute("""
         SELECT u.chat_id, u.role, s.response_data 
         FROM responses s 
-        JOIN users u ON s.user_id = u.id 
+        JOIN users u ON s.user_id = u.chat_id 
         JOIN teams t ON s.team_id = t.id 
-        WHERE t.team_name = ?
+        WHERE t.team_name = ?;
     """, (team_name,))
 
     responses = cursor.fetchall()
     conn.close()
+    print(responses)
+
 
     # Форматируем данные для отправки в GPT
     formatted_data = format_responses_for_gpt(responses)
-
+    print(formatted_data)
     # Получаем лидерский чат_id
     leader_chat_id = get_leader_chat_id(team_name)
 
@@ -315,22 +317,22 @@ def process_survey_results(team_name):
     send_to_gpt(formatted_data, team_name, leader_chat_id)
 
 
-def format_responses_for_gpt(responses):
-    """Форматирует ответы для отправки в GPT"""
-    formatted = {
-        "team_responses": []
-    }
-
-    for response in responses:
-        # Предполагаем, что response_data хранится как JSON, извлекаем его
-        response_data = json.loads(response['response_data'])
-
-        formatted["team_responses"].append({
-            "user_role": response['role'],
-            "responses": response_data
-        })
-
-    return formatted
+# def format_responses_for_gpt(responses):
+#     """Форматирует ответы для отправки в GPT"""
+#     formatted = {
+#         "team_responses": []
+#     }
+#
+#     for response in responses:
+#         # Предполагаем, что response_data хранится как JSON, извлекаем его
+#         response_data = json.loads(response['response_data'])
+#
+#         formatted["team_responses"].append({
+#             "user_role": response['role'],
+#             "responses": response_data
+#         })
+#
+#     return formatted
 
 
 def get_leader_chat_id(team_name):
@@ -348,15 +350,36 @@ def format_responses_for_gpt(responses):
     }
 
     for response in responses:
-        formatted["team_responses"].append({
-            "user_role": response["role"],
-            "question": response["question"],
-            "answer": response["answer"]
-        })
+        try:
+            # Декодируем JSON из response_data
+            response_data = json.loads(response['response_data'])
+
+            # Добавляем ответы участника в общий список
+            formatted["team_responses"].append({
+                "user_role": response['role'],
+                "responses": response_data
+            })
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"Ошибка при обработке response_data: {response['response_data']} - {e}")
+            continue
 
     return formatted
 
-from openai import OpenAI
+
+
+def prepare_data_for_gpt(formatted_data):
+    """Преобразует данные для использования в GPT"""
+    questions = ["Вопрос 1", "Вопрос 2", "Вопрос 3", "Вопрос 4", "Вопрос 5"]
+    result = {}
+
+    # Объединяем ответы по каждому вопросу
+    for i, question in enumerate(questions):
+        result[question] = ", ".join([
+            user["responses"][i] for user in formatted_data["team_responses"] if i < len(user["responses"])
+        ])
+
+    return result
+
 
 # Установите ваш API-ключ OpenAI (убедитесь, что он защищен).
 openai = OpenAI(api_key="sk-jbGuTUUPygaYe4ZV9SFNt6TnyJCEG51G",
@@ -366,36 +389,44 @@ openai = OpenAI(api_key="sk-jbGuTUUPygaYe4ZV9SFNt6TnyJCEG51G",
 def send_to_gpt(formatted_data, team_name, leader_chat_id):
     """Отправляет данные команды в GPT и отправляет ответ тимлиду."""
     try:
-        # Подготавливаем данные JSON для отправки GPT
-        prompt = f"""Вы являетесь анализатором данных. Вот ответы команды {team_name} на опрос:
-        {formatted_data}
+        # Подготавливаем данные для GPT
+        data_for_gpt = prepare_data_for_gpt(formatted_data)
 
-        Ты пишешь письмо себе в будущее
-        1.	Ты хочешь передать настроение момента и предостеречь себя от ошибок.
-        2.	На основе ответов на 1 вопрос расскажи про свои ценности и почему они важны
-        3.	На основе ответов на 2 вопрос расскажи за что ты благодарен товарищам
-        4.	На основе ответов на 4 вопрос расскажи чего ждешь от следующего года. 
-        5.	В конце На основе ответов на 5 вопрос дай ироничный, но полезный совет самому себе.
-        В тексте используй иронию и немного пассивной агрессии.
-        Обращайся в письме к себе, как к старому другу.
-        Постарайся использовать локальные мемы (ответы на 3 вопрос) не как цитаты, а нативно.
-        Уложись в 1300 знаков.
-        Проверь предложения на согласованность.
-        """
+        # Преобразуем данные в текст
+        formatted_text = "\n".join([f"{question}: {answers}" for question, answers in data_for_gpt.items()])
+
+        # Формируем промпт
+        prompt = f"""Вы являетесь анализатором данных. Вот ответы команды {team_name} на опрос:
+
+{formatted_text}
+
+Ты пишешь письмо себе в будущее.
+1. Ты хочешь передать настроение момента и предостеречь себя от ошибок.
+2. На основе ответов на 1 вопрос расскажи про свои ценности и почему они важны.
+3. На основе ответов на 2 вопрос расскажи, за что ты благодарен товарищам.
+4. На основе ответов на 4 вопрос расскажи, чего ждешь от следующего года.
+5. В конце на основе ответов на 5 вопрос дай ироничный, но полезный совет самому себе.
+
+В тексте используй иронию и немного пассивной агрессии.
+Обращайся в письме к себе, как к старому другу.
+Постарайся использовать локальные мемы (ответы на 3 вопрос) не как цитаты, а нативно.
+Уложись в 1300 знаков.
+Проверь предложения на согласованность."""
 
         # Обращение к модели GPT
         response = openai.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}]
         )
 
-        # Извлекаем ответ GPT
+        # Извлекаем текст ответа GPT
         gpt_response_text = response.choices[0].message.content
 
         # Отправляем ответ тимлиду
-        bot.send_message(leader_chat_id, f"Текст для капсулы времени:\n{gpt_response_text}")
+        bot.send_message(leader_chat_id, f"Текст для капсулы времени:\n\n{gpt_response_text}")
 
     except Exception as e:
+        # Если произошла ошибка, отправляем сообщение тимлиду
         bot.send_message(leader_chat_id, "Произошла ошибка при обработке данных опроса.")
         print(f"Ошибка при отправке в GPT: {e}")
 

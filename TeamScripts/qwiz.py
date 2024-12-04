@@ -93,7 +93,7 @@ def save_survey_responses(user_id, team_name, responses):
         return
 
     team_id = team["id"]
-    responses_json = json.dumps(responses)
+    responses_json = json.dumps(responses, ensure_ascii=False)
 
     cursor.execute(
         "INSERT INTO responses (team_id, user_id, response_data) VALUES (?, ?, ?)",
