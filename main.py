@@ -126,7 +126,7 @@ def handle_create_link(call):
             cursor.execute("INSERT INTO teams (team_name, link, is_active) VALUES (?, ?, ?)",
                            (team_name, full_link, 1))
         else:
-            cursor.execute("UPDATE teams SET link = ? WHERE team_name = ?", (full_link, team_name))
+            cursor.execute("UPDATE teams SET link = ? WHERE team_name = ?", (unique_id, team_name))
 
         conn.commit()
 
