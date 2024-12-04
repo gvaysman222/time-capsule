@@ -2,11 +2,12 @@ import telebot
 import sqlite3
 import uuid
 import json
+from telebot import types
 from TeamScripts.qwiz import start_survey, handle_survey_response, active_surveys
 from openai import OpenAI
 
 # Токен вашего бота (замените на ваш)
-BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
+BOT_TOKEN = "8172850469:AAEq_qPudr2H27sogDEQvRcqTwucqNMq-1E"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Функция для подключения к базе данных
@@ -16,7 +17,6 @@ def get_db_connection():
     return conn
 
 # Команда /start
-
 @bot.message_handler(commands=['start'])
 def start_command(message):
     chat_id = message.chat.id
@@ -31,21 +31,26 @@ def start_command(message):
     leader = cursor.fetchone()
 
     if leader:
-        # Пользователь — тимлид, приветствуем его
-        team_name = leader['team_name']
-        cursor.execute("SELECT * FROM teams WHERE team_name = ?", (team_name,))
+        # Пользователь — тимлид, проверяем, есть ли данные о команде
+        cursor.execute("SELECT * FROM teams WHERE team_name = ?", (leader['team_name'],))
         team = cursor.fetchone()
 
-        bot.reply_to(
-            message,
-            f"Здравствуйте, тимлид команды '{team_name}'.\n"
-            f"Чтобы начать сбор капсулы времени, нажмите кнопку ниже."
-        )
-        # Кнопка для создания ссылки
-        markup = telebot.types.InlineKeyboardMarkup()
-        create_link_btn = telebot.types.InlineKeyboardButton("Собрать капсулу", callback_data=f"create_link_{team_name}")
-        markup.add(create_link_btn)
-        bot.send_message(chat_id, "Нажмите кнопку, чтобы начать сбор капсулы времени:", reply_markup=markup)
+        if not team or team['description'] is None:  # Если данных о команде нет, запрашиваем их
+            msg1 = bot.reply_to(message, "Введите название команды:")
+            bot.register_next_step_handler(msg1, lambda msg: process_team_name(msg, chat_id))
+        else:
+            # Обработка существующего тимлида с командой
+            team_name = team['team_name']
+            bot.reply_to(
+                message,
+                f"Здравствуйте, тимлид команды '{team_name}'.\n"
+                f"Чтобы начать сбор капсулы времени, нажмите кнопку ниже."
+            )
+            # Кнопка для создания ссылки
+            markup = types.InlineKeyboardMarkup()
+            create_link_btn = types.InlineKeyboardButton("Собрать капсулу", callback_data=f"create_link_{team_name}")
+            markup.add(create_link_btn)
+            bot.send_message(chat_id, "Нажмите кнопку, чтобы начать сбор капсулы времени:", reply_markup=markup)
         conn.close()
         return
 
@@ -75,12 +80,20 @@ def start_command(message):
                 message,
                 f"Вы уже зарегистрированы как {user['role']} в команде '{user['team_name']}'."
             )
+            markup = types.InlineKeyboardMarkup()
+            quiz_button = types.InlineKeyboardButton("Начать анкетирование", callback_data="start_quiz")
+            markup.add(quiz_button)
+            bot.send_message(chat_id, "Добро пожаловать! Нажмите кнопку ниже, чтобы начать анкетирование.", reply_markup=markup)
         else:
             # Регистрируем нового участника и связываем с командой
-            cursor.execute("INSERT INTO users (chat_id, role, team_name) VALUES (?, ?, ?)", (chat_id, 'member', team_name))
+            cursor.execute("INSERT INTO users (chat_id, role, team_name) VALUES (?, 'member', ?)", (chat_id, team_name))
             conn.commit()
 
             bot.send_message(chat_id, f"Вы успешно присоединились к команде '{team_name}'!")
+            markup = types.InlineKeyboardMarkup()
+            quiz_button = types.InlineKeyboardButton("Начать анкетирование", callback_data="start_quiz")
+            markup.add(quiz_button)
+            bot.send_message(chat_id, "Добро пожаловать! Нажмите кнопку ниже, чтобы начать анкетирование.", reply_markup=markup)
     else:
         bot.reply_to(
             message,
@@ -88,6 +101,43 @@ def start_command(message):
         )
     conn.close()
 
+
+def process_team_name(message, chat_id):
+    team_name = message.text.strip()
+
+    # Сохранение или обработка введенного названия команды
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM teams WHERE team_name = ?", (team_name,))
+    existing_team = cursor.fetchone()
+
+    if existing_team:
+        bot.reply_to(message, "Такое название команды уже существует. Пожалуйста, введите другое.")
+        return
+
+    msg = bot.reply_to(message, "Введите описание вашей команды:")
+    bot.register_next_step_handler(msg, process_team_description, team_name, chat_id)
+    conn.close()
+
+
+def process_team_description(message, team_name, chat_id):
+    description = message.text.strip()
+
+    # Сохранение нового описания команды
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO teams (team_name, description) VALUES (?, ?)", (team_name, description))
+    cursor.execute("UPDATE users SET team_name = ? WHERE chat_id = ?", (team_name, chat_id))
+    conn.commit()
+    conn.close()
+
+    bot.reply_to(message, f"Команда '{team_name}' успешно создана с описанием.")
+
+    # Отправка кнопки для сбора капсулы
+    markup = types.InlineKeyboardMarkup()
+    create_link_btn = types.InlineKeyboardButton("Собрать капсулу", callback_data=f"create_link_{team_name}")
+    markup.add(create_link_btn)
+    bot.send_message(chat_id, "Нажмите кнопку, чтобы собрать капсулу времени:", reply_markup=markup)
 
 # Обработка нажатия кнопки "Собрать капсулу"
 @bot.callback_query_handler(func=lambda call: call.data.startswith("create_link_"))
@@ -124,7 +174,7 @@ def handle_create_link(call):
 
         if not team:
             cursor.execute("INSERT INTO teams (team_name, link, is_active) VALUES (?, ?, ?)",
-                           (team_name, full_link, 1))
+                           (team_name, unique_id, 1))
         else:
             cursor.execute("UPDATE teams SET link = ? WHERE team_name = ?", (unique_id, team_name))
 
@@ -149,16 +199,79 @@ def handle_create_link(call):
     conn.close()
 
 # Обработка команды /admin (только для админа)
+ADMIN_CHAT_ID = 222570978  # Замените на ваш чат_id
+
 @bot.message_handler(commands=['admin'])
 def admin_command(message):
     chat_id = message.chat.id
 
-    # Проверка chat_id админа (замените на ваш chat_id)
-    ADMIN_CHAT_ID = 123456789  # Замените на свой chat_id
     if chat_id == ADMIN_CHAT_ID:
-        bot.reply_to(message, "Добро пожаловать в админку!")
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        markup.add("Добавить тимлида", "Удалить тимлида", "Редактировать тимлида")
+        bot.reply_to(message, "Добро пожаловать в админку! Выберите действие:", reply_markup=markup)
     else:
         bot.reply_to(message, "У вас нет прав доступа к админке.")
+
+@bot.message_handler(func=lambda message: message.text in ["Добавить тимлида", "Удалить тимлида", "Редактировать тимлида"])
+def handle_admin_action(message):
+    action = message.text
+    chat_id = message.chat.id
+
+    if action == "Добавить тимлида":
+        msg = bot.reply_to(message, "Введите chat_id нового тимлида:")
+        bot.register_next_step_handler(msg, process_add_leader)
+    elif action == "Удалить тимлида":
+        msg = bot.reply_to(message, "Введите chat_id тимлида для удаления:")
+        bot.register_next_step_handler(msg, process_delete_leader)
+    elif action == "Редактировать тимлида":
+        msg = bot.reply_to(message, "Введите chat_id тимлида для редактирования:")
+        bot.register_next_step_handler(msg, process_edit_leader)
+
+def process_add_leader(message):
+    chat_id = message.chat.id
+    new_leader_id = message.text
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (chat_id, role, team_name) VALUES (?, ?, ?)", (new_leader_id, "leader", ""))
+    conn.commit()
+    conn.close()
+
+    bot.reply_to(message, f"Тимлид с chat_id {new_leader_id} добавлен.")
+
+def process_delete_leader(message):
+    chat_id = message.chat.id
+    leader_id = message.text
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE chat_id = ? AND role = 'leader'", (leader_id,))
+    conn.commit()
+    conn.close()
+
+    bot.reply_to(message, f"Тимлид с chat_id {leader_id} удален.")
+
+def process_edit_leader(message):
+    chat_id = message.chat.id
+    edit_leader_id = message.text
+    msg = bot.reply_to(message, "Введите новое название команды для тимлида:")
+    bot.register_next_step_handler(msg, lambda m: process_update_leader(m, edit_leader_id))
+
+def process_update_leader(message, leader_id):
+    new_team_name = message.text
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET team_name = ? WHERE chat_id = ? AND role = 'leader'", (new_team_name, leader_id))
+    conn.commit()
+    conn.close()
+
+    bot.reply_to(message, f"Тимлид с chat_id {leader_id} обновлен, новая команда: {new_team_name}.")
+
+def get_db_connection():
+    conn = sqlite3.connect('time_capsule.db')  # Замените на вашу бд
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # Команда /start с параметром (участник использует ссылку для входа)
 @bot.message_handler(commands=['start'])
@@ -194,20 +307,28 @@ def join_team_command(message):
         if user:
             bot.reply_to(
                 message,
-                f"Вы уже зарегистрированы как {user['role']} в команде '{user['team_name']}'."
+                f"Вы зарегистрированы как {user['role']} в команде '{user['team_name']}'."
             )
+            markup = types.InlineKeyboardMarkup()
+            quiz_button = types.InlineKeyboardButton("Начать анкетирование", callback_data="start_quiz")
+            markup.add(quiz_button)
+            bot.send_message(chat_id, "Добро пожаловать! Нажмите кнопку ниже, чтобы начать анкетирование.", reply_markup=markup)
         else:
             # Регистрируем нового участника
             cursor.execute("INSERT INTO users (chat_id, role, team_name) VALUES (?, ?, ?)", (chat_id, 'member', team_name))
             conn.commit()
             bot.send_message(chat_id, f"Вы успешно присоединились к команде '{team_name}'!")
+            markup = types.InlineKeyboardMarkup()
+            quiz_button = types.InlineKeyboardButton("Начать анкетирование", callback_data="start_quiz")
+            markup.add(quiz_button)
+            bot.send_message(chat_id, "Добро пожаловать! Нажмите кнопку ниже, чтобы начать анкетирование.", reply_markup=markup)
     else:
         bot.reply_to(message, "Некорректная или недействительная ссылка. Обратитесь к вашему тимлиду.")
     conn.close()
 
-@bot.message_handler(commands=['quiz'])
-def quiz_command(message):
-    chat_id = message.chat.id
+@bot.callback_query_handler(func=lambda call: call.data == "start_quiz")
+def quiz_callback(call):
+    chat_id = call.message.chat.id
 
     # Проверяем, к какой команде относится участник
     conn = get_db_connection()
@@ -216,7 +337,7 @@ def quiz_command(message):
     user = cursor.fetchone()
 
     if not user:
-        bot.reply_to(message, "Вы не зарегистрированы в команде. Обратитесь к вашему тимлиду.")
+        bot.send_message(chat_id, "Вы не зарегистрированы в команде. Обратитесь к вашему тимлиду.")
         conn.close()
         return
 
@@ -224,7 +345,7 @@ def quiz_command(message):
     conn.close()
 
     # Запускаем анкетирование
-    start_survey(bot, message, team_name)
+    start_survey(bot, call.message, team_name)
 
 @bot.message_handler(func=lambda message: message.chat.id in active_surveys)
 def survey_response_handler(message):
@@ -387,7 +508,6 @@ openai = OpenAI(api_key="sk-jbGuTUUPygaYe4ZV9SFNt6TnyJCEG51G",
 
 
 def send_to_gpt(formatted_data, team_name, leader_chat_id):
-    """Отправляет данные команды в GPT и отправляет ответ тимлиду."""
     try:
         # Подготавливаем данные для GPT
         data_for_gpt = prepare_data_for_gpt(formatted_data)
@@ -395,12 +515,19 @@ def send_to_gpt(formatted_data, team_name, leader_chat_id):
         # Преобразуем данные в текст
         formatted_text = "\n".join([f"{question}: {answers}" for question, answers in data_for_gpt.items()])
 
+        # Получаем описание команды
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT description FROM teams WHERE team_name = ?", (team_name,))
+        team = cursor.fetchone()
+        description = team['description'] if team else 'Описание отсутствует'
+        conn.close()
+
         # Формируем промпт
-        prompt = f"""Вы являетесь анализатором данных. Вот ответы команды {team_name} на опрос:
+        prompt = f"""Ты пишешь письмо себе в будущее. Используй название команды и суть ее работы:{description} 
+        Возьми ответы команды {team_name} на опрос:
 
 {formatted_text}
-
-Ты пишешь письмо себе в будущее.
 1. Ты хочешь передать настроение момента и предостеречь себя от ошибок.
 2. На основе ответов на 1 вопрос расскажи про свои ценности и почему они важны.
 3. На основе ответов на 2 вопрос расскажи, за что ты благодарен товарищам.
