@@ -12,7 +12,7 @@ credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes
 gc = gspread.authorize(credentials)
 
 # Подключение к Google Таблице
-SPREADSHEET_ID = '1U6EowzPVdcf2jVBjnfVe0DUZ-Z4ns68rJqnNC_INnIA'  # Укажите ID вашей таблицы
+SPREADSHEET_ID = '1jyRZvgoz2pllsM7PzhxRxmdb9UnBmeZrYQtMrj8wpNo'  # Укажите ID вашей таблицы
 spreadsheet = gc.open_by_key(SPREADSHEET_ID)
 
 
