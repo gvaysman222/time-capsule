@@ -6,7 +6,7 @@ from handlers.member import register_member_handlers
 from handlers.quiz import register_quiz_handlers
 
 # Ваш токен
-BOT_TOKEN = "KEY"
+BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Настройка базы данных

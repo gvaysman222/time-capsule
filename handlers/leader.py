@@ -1,6 +1,7 @@
 import uuid
 from telebot import types
 from database import get_db_connection
+from TeamScripts.qwiz import start_survey, active_surveys, handle_survey_response
 
 def register_leader_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data == "create_capsule")
@@ -33,6 +34,17 @@ def register_leader_handlers(bot):
         )
         capsule_id = cursor.lastrowid  # Получаем ID созданной капсулы
 
+        # Проверка на существование записи с тем же chat_id и capsule_id
+        cursor.execute("SELECT * FROM users WHERE chat_id = ? AND capsule_id = ?", (chat_id, capsule_id))
+        user = cursor.fetchone()
+
+        if not user:
+            # Добавляем запись только если она уникальна по chat_id и capsule_id
+            cursor.execute(
+                "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'leader', ?)",
+                (chat_id, capsule_id)
+            )
+
         conn.commit()
         conn.close()
 
@@ -44,14 +56,12 @@ def register_leader_handlers(bot):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Получение всех капсул, созданных лидером
         cursor.execute("SELECT * FROM capsules WHERE leader_id = ?", (chat_id,))
         capsules = cursor.fetchall()
 
         if capsules:
             markup = types.InlineKeyboardMarkup(row_width=1)
             for capsule in capsules:
-                # Кнопка для выбора капсулы
                 select_btn = types.InlineKeyboardButton(
                     f"{capsule['team_name']}",
                     callback_data=f"select_capsule_{capsule['id']}"
@@ -71,15 +81,16 @@ def register_leader_handlers(bot):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Получение данных капсулы
         cursor.execute("SELECT * FROM capsules WHERE id = ?", (capsule_id,))
         capsule = cursor.fetchone()
         conn.close()
 
         if capsule:
             markup = types.InlineKeyboardMarkup(row_width=1)
-            # Кнопки для выбранной капсулы
-            quiz_btn = types.InlineKeyboardButton("Посмотреть квиз", callback_data=f"quiz_{capsule_id}")
+            quiz_btn = types.InlineKeyboardButton(
+                f"Пройти квиз: {capsule['team_name']}",
+                callback_data=f"quiz_{capsule['id']}"  # Передаётся capsule['id'], а не строка
+            )
             end_btn = types.InlineKeyboardButton("Завершить сбор", callback_data=f"end_{capsule_id}")
             markup.add(quiz_btn, end_btn)
 
@@ -91,3 +102,36 @@ def register_leader_handlers(bot):
             )
         else:
             bot.reply_to(call.message, "Ошибка: капсула не найдена.")
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("quiz_"))
+    def start_quiz(call):
+        chat_id = call.message.chat.id
+
+        try:
+            capsule_id = int(call.data.split("quiz_")[1])  # Преобразуем в int
+        except ValueError:
+            bot.reply_to(call.message, "Ошибка: Неверный идентификатор капсулы.")
+            return
+
+        print(f"Начало квиза: chat_id={chat_id}, capsule_id={capsule_id}")  # Отладка
+
+        # Запуск квиза
+        start_survey(bot, call.message, capsule_id)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("end_"))
+    def end_survey(call):
+        chat_id = call.message.chat.id
+        capsule_id = int(call.data.split("end_")[1])
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE capsules SET is_active = 0 WHERE id = ?", (capsule_id,))
+        conn.commit()
+        conn.close()
+
+        bot.send_message(chat_id, "Сбор данных завершён. Ответы отправлены.")
+
+    # Регистрация обработчика для ответа на квиз
+    @bot.message_handler(func=lambda message: message.chat.id in active_surveys)
+    def process_survey_response(message):
+        handle_survey_response(bot, message)
