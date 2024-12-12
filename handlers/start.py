@@ -19,28 +19,36 @@ def register_start_handlers(bot):
             capsule = cursor.fetchone()
 
             if capsule:
-                # Привязываем пользователя к капсуле
+                # Проверяем, зарегистрирован ли пользователь уже
                 cursor.execute("SELECT * FROM users WHERE chat_id = ?", (chat_id,))
                 user = cursor.fetchone()
 
                 if user:
-                    bot.reply_to(message, "Вы уже зарегистрированы.")
+                    # Если пользователь уже зарегистрирован, перепривязываем к новой капсуле
+                    cursor.execute(
+                        "UPDATE users SET capsule_id = ? WHERE chat_id = ?",
+                        (capsule['id'], chat_id)
+                    )
+                    conn.commit()
+                    bot.send_message(chat_id, f"Вы были перепривязаны к капсуле '{capsule['team_name']}'.")
                 else:
+                    # Если пользователь не зарегистрирован, создаём новую запись
                     cursor.execute(
                         "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'member', ?)",
                         (chat_id, capsule['id'])
                     )
                     conn.commit()
+                    bot.send_message(chat_id, f"Вы успешно присоединились к капсуле '{capsule['team_name']}'.")
 
-                    # Отправляем сообщение с кнопкой для квиза
-                    markup = types.InlineKeyboardMarkup()
-                    start_quiz_btn = types.InlineKeyboardButton("Пройти квиз", callback_data=f"start_quiz_{capsule['id']}")
-                    markup.add(start_quiz_btn)
-                    bot.send_message(
-                        chat_id,
-                        f"Вы успешно присоединились к капсуле '{capsule['team_name']}'!\nНажмите кнопку ниже, чтобы пройти квиз:",
-                        reply_markup=markup
-                    )
+                # Отправляем сообщение с кнопкой для квиза
+                markup = types.InlineKeyboardMarkup()
+                start_quiz_btn = types.InlineKeyboardButton("Пройти квиз", callback_data=f"start_quiz_{capsule['id']}")
+                markup.add(start_quiz_btn)
+                bot.send_message(
+                    chat_id,
+                    f"Нажмите кнопку ниже, чтобы пройти квиз:",
+                    reply_markup=markup
+                )
             else:
                 bot.reply_to(message, "Некорректная или недействительная ссылка.")
         else:
