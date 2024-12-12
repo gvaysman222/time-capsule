@@ -25,13 +25,26 @@ def register_start_handlers(bot):
 
                 if user:
                     if user['role'] == 'leader':
-                        # Если пользователь — тимлид, создаём новую запись как мембера
+                        # Проверяем, существует ли уже запись как мембера для этой капсулы
                         cursor.execute(
-                            "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'member', ?)",
+                            "SELECT * FROM users WHERE chat_id = ? AND role = 'member' AND capsule_id = ?",
                             (chat_id, capsule['id'])
                         )
-                        conn.commit()
-                        bot.send_message(chat_id, f"Вы были добавлены в капсулу '{capsule['team_name']}' как участник.")
+                        existing_member = cursor.fetchone()
+
+                        if existing_member:
+                            # Если запись уже существует, уведомляем пользователя
+                            bot.send_message(chat_id,
+                                             f"Вы уже добавлены в капсулу '{capsule['team_name']}' как участник.")
+                        else:
+                            # Если записи нет, создаём новую запись как мембера
+                            cursor.execute(
+                                "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'member', ?)",
+                                (chat_id, capsule['id'])
+                            )
+                            conn.commit()
+                            bot.send_message(chat_id,
+                                             f"Вы были добавлены в капсулу '{capsule['team_name']}' как участник.")
                     else:
                         # Если пользователь уже зарегистрирован как мембер, обновляем привязку
                         cursor.execute(
