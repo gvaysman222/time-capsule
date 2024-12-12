@@ -3,6 +3,9 @@ from telebot import types
 from database import get_db_connection
 from TeamScripts.qwiz import start_survey, active_surveys, handle_survey_response
 from GPTwork.GPTsummary import send_to_gpt
+from handlers.start import show_leader_menu
+
+
 def register_leader_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data == "create_capsule")
     def create_capsule(call):
@@ -49,6 +52,7 @@ def register_leader_handlers(bot):
         conn.close()
 
         bot.send_message(chat_id, f"Капсула '{team_name}' создана! Вот ссылка для команды: {link}")
+        show_leader_menu(bot, chat_id)
 
     @bot.callback_query_handler(func=lambda call: call.data == "my_capsules")
     def manage_capsules(call):
@@ -131,8 +135,10 @@ def register_leader_handlers(bot):
 
         bot.send_message(chat_id, "Сбор данных завершён. Ответы отправлены.")
         send_to_gpt(bot, capsule_id)
+        show_leader_menu(bot, chat_id)
 
     # Регистрация обработчика для ответа на квиз
     @bot.message_handler(func=lambda message: message.chat.id in active_surveys)
     def process_survey_response(message):
         handle_survey_response(bot, message)
+

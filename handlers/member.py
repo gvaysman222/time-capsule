@@ -1,5 +1,6 @@
 from telebot import types
 from database import get_db_connection
+from handlers.quiz import start_survey, active_surveys, handle_survey_response
 
 def register_member_handlers(bot):
     @bot.message_handler(commands=['start'])
@@ -73,7 +74,12 @@ def register_member_handlers(bot):
 
         if user:
             bot.send_message(chat_id, "Начинаем квиз! Введите ответ на первый вопрос:")
-            # Логика квиза начинается здесь — вы можете отправлять вопросы и записывать ответы
+            start_survey(bot, call.message, capsule_id)
         else:
             bot.reply_to(call.message, "Вы не привязаны к этой капсуле.")
         conn.close()
+
+        # Регистрация обработчика для ответа на квиз
+        @bot.message_handler(func=lambda message: message.chat.id in active_surveys)
+        def process_survey_response(message):
+            handle_survey_response(bot, message)
