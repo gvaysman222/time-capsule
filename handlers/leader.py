@@ -3,7 +3,7 @@ from telebot import types
 from telebot.types import BotCommand
 from database import get_db_connection
 from TeamScripts.qwiz import start_survey, active_surveys, handle_survey_response
-
+from GPTwork.GPTsummary import send_to_gpt
 def register_leader_handlers(bot):
     # Установка кнопок меню для тимлидов
     def set_leader_commands(chat_id):
@@ -161,6 +161,7 @@ def register_leader_handlers(bot):
         conn.close()
 
         bot.send_message(chat_id, "Сбор данных завершён. Ответы отправлены.")
+        send_to_gpt(bot, capsule_id)
 
     # Регистрация обработчика для ответа на квиз
     @bot.message_handler(func=lambda message: message.chat.id in active_surveys)
