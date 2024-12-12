@@ -1,6 +1,6 @@
 import sqlite3
 import json
-
+from handlers.start import show_leader_menu
 # Вопросы для квиза
 QUESTIONS = [
     "Делать крутые штуки нам помогают общие ценности. Как думаешь какие?",
@@ -63,6 +63,8 @@ def handle_survey_response(bot, message):
         save_survey_responses(chat_id, capsule_id, responses)
         bot.send_message(chat_id, "Спасибо за участие! Ваши ответы сохранены.")
         del active_surveys[chat_id]
+        notify_leader_and_show_menu(bot, capsule_id)
+
 
 # Сохранение ответов
 def save_survey_responses(chat_id, capsule_id, responses):
@@ -81,4 +83,41 @@ def save_survey_responses(chat_id, capsule_id, responses):
     conn.commit()
     conn.close()
 
+def check_all_responses_completed(capsule_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Получаем общее количество пользователей и ответов для капсулы
+    cursor.execute("SELECT COUNT(*) AS total_users FROM users WHERE capsule_id = ?", (capsule_id,))
+    total_users = cursor.fetchone()["total_users"]
+
+    cursor.execute("SELECT COUNT(*) AS total_responses FROM responses WHERE capsule_id = ?", (capsule_id,))
+    total_responses = cursor.fetchone()["total_responses"]
+
+    conn.close()
+    return total_users == total_responses
+
+# Уведомление лидера и показ меню
+def notify_leader_and_show_menu(bot, capsule_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Получаем данные капсулы
+    cursor.execute("SELECT leader_id, team_name FROM capsules WHERE id = ?", (capsule_id,))
+    capsule = cursor.fetchone()
+
+    if capsule:
+        leader_id = capsule["leader_id"]
+        team_name = capsule["team_name"]
+
+        # Уведомляем лидера
+        bot.send_message(
+            leader_id,
+            f"Спасибо за квиз босс"
+        )
+
+        # Показываем меню для лидера
+        show_leader_menu(bot, leader_id)
+
+    conn.close()
 
