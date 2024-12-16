@@ -38,7 +38,7 @@ def send_to_gpt(bot, capsule_id):
             answers = json.loads(response["response_data"])
         except json.JSONDecodeError:
             answers = ["Ошибка декодирования данных"]
-        formatted_responses.append(f"Пользователь {user_id}:\n" + "\n".join(f" - {a}" for a in zip(answers)))
+        formatted_responses.append(f"Пользователь {user_id}:\n" + "\n".join(f" - {a}" for a in answers))
 
 
     prompt = f"""
@@ -67,6 +67,16 @@ def send_to_gpt(bot, capsule_id):
         )
         gpt_response = response.choices[0].message.content
 
+        # Сохраняем письмо в базе данных
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE capsules SET capsule_mail = ? WHERE id = ?",
+            (gpt_response, capsule_id)
+        )
+        conn.commit()
+        conn.close()
+
         # Отправляем ответ тимлиду
         bot.send_message(
             leader_id,
@@ -76,4 +86,3 @@ def send_to_gpt(bot, capsule_id):
     except Exception as e:
         print(f"Ошибка при отправке в GPT: {e}")
         bot.send_message(leader_id, "Произошла ошибка при обработке данных капсулы.")
-

@@ -25,15 +25,20 @@ def start_survey(bot, message, capsule_id):
 
     # Проверяем, есть ли активная анкета
     if chat_id in active_surveys:
-        bot.reply_to(message, "Вы уже начали квиз. Пожалуйста, завершите его.")
-        return
-
-    # Инициализация анкеты
-    active_surveys[chat_id] = {
-        "capsule_id": capsule_id,
-        "responses": [],
-        "current_question": 0
-    }
+        # Сбрасываем состояние старого квиза
+        active_surveys[chat_id] = {
+            "capsule_id": capsule_id,
+            "responses": [],
+            "current_question": 0
+        }
+        bot.send_message(chat_id, "Вы начали новый квиз. Предыдущий прогресс был сброшен.")
+    else:
+        # Инициализация новой анкеты
+        active_surveys[chat_id] = {
+            "capsule_id": capsule_id,
+            "responses": [],
+            "current_question": 0
+        }
 
     # Отправляем первый вопрос
     bot.send_message(chat_id, QUESTIONS[0])

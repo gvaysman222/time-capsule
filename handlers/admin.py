@@ -1,7 +1,7 @@
 from telebot import types
 from database import get_db_connection
 
-ADMIN_ID = 222570978  # Укажите ваш Telegram ID
+ADMIN_ID = 6248416489  # Укажите ваш Telegram ID
 
 def register_admin_handlers(bot):
     @bot.message_handler(commands=['admin'])
