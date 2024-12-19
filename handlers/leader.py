@@ -8,9 +8,9 @@ from telebot.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
 from yookassa import Configuration, Payment
 
 
-Configuration.account_id = "999342"  # Замените на ваш shopId
-Configuration.secret_key = "test_oqJzffEIfPKYpd2RJaE4HSsrRYoYwUoam3rr8VlXIxw"  # Замените на ваш секретный ключ
-CAPSULE_PRICE = 50
+Configuration.account_id = "997914"  # Замените на ваш shopId
+Configuration.secret_key = "live_3-ynXKFT0qf9e5AAcHTGKcH2rr0yd4NylIgk7FLIdpE"  # Замените на ваш секретный ключ
+CAPSULE_PRICE = 300
 def register_leader_handlers(bot):
     def ensure_user_balance(chat_id):
         """Проверка наличия баланса у пользователя"""
@@ -346,11 +346,11 @@ def register_leader_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data == "top_up_balance")
     def top_up_balance(call):
         chat_id = call.message.chat.id
-        payment_url = create_payment(chat_id, "Пополнение баланса", 50.00, "top_up_balance")
+        payment_url = create_payment(chat_id, "Пополнение баланса", 300.00, "top_up_balance")
 
         if payment_url:
             markup = types.InlineKeyboardMarkup()
-            payment_button = types.InlineKeyboardButton("Оплатить 50 рублей", url=payment_url)
+            payment_button = types.InlineKeyboardButton("Оплатить 300 рублей", url=payment_url)
             markup.add(payment_button)
             bot.send_message(chat_id, "Перейдите по ссылке для оплаты:", reply_markup=markup)
         else:
@@ -372,13 +372,13 @@ def register_leader_handlers(bot):
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE balances SET balance = balance + 50 WHERE chat_id = ?",
+                "UPDATE balances SET balance = balance + 300 WHERE chat_id = ?",
                 (chat_id,)
             )
             conn.commit()
             conn.close()
 
-            bot.send_message(chat_id, "✅ Оплата успешно завершена! Ваш баланс пополнен на 50 рублей.")
+            bot.send_message(chat_id, "✅ Оплата успешно завершена! Ваш баланс пополнен на 300 рублей.")
             print(f"Баланс успешно обновлён для пользователя {chat_id}")
         except Exception as e:
             print(f"Ошибка при обновлении баланса: {e}")

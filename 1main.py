@@ -9,7 +9,7 @@ import json
 import requests  # Для запросов к ngrok API
 
 # Ваш токен
-BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
+BOT_TOKEN = "8172850469:AAEq_qPudr2H27sogDEQvRcqTwucqNMq-1E"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Flask сервер для вебхука
@@ -144,7 +144,7 @@ def yookassa_webhook():
                         (chat_id,)
                     )
 
-                    bot.send_message(chat_id, f"Спасибо за оплату! Теперь вы являетесь лидером. Ваш текущий баланс пополнен на 100 рублей.")
+                    bot.send_message(chat_id, f"Спасибо за оплату! Теперь вы являетесь лидером. Ваш текущий баланс пополнен на 300 рублей.")
                     show_leader_menu(bot, chat_id)
 
                 elif payment_type == "top_up_balance":
@@ -154,7 +154,7 @@ def yookassa_webhook():
                         (chat_id,)
                     )
                     new_balance = cursor.execute("SELECT balance FROM balances WHERE chat_id = ?", (chat_id,)).fetchone()["balance"]
-                    bot.send_message(chat_id, f"Ваш баланс успешно пополнен на 50 рублей. Текущий баланс: {new_balance} рублей.")
+                    bot.send_message(chat_id, f"Ваш баланс успешно пополнен на 300 рублей. Текущий баланс: {new_balance} рублей.")
                     show_leader_menu(bot, chat_id)
 
                 conn.commit()

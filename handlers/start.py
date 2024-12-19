@@ -70,7 +70,7 @@ def register_start_handlers(bot):
             "1️⃣ Создание и управление капсулами времени.\n"
             "2️⃣ Проведение командных опросов.\n"
             "3️⃣ Генерация писем для участников.\n\n"
-            "💰 *Стоимость доступа:* 50 рублей.\n"
+            "💰 *Стоимость капсулы:* 300 рублей.\n"
             "Нажмите кнопку ниже, чтобы приобрести доступ и начать пользоваться ботом."
         )
 
@@ -116,11 +116,11 @@ def register_start_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data == "buy_access")
     def buy_access(call):
         chat_id = call.message.chat.id
-        payment_url = create_payment(chat_id, "Покупка доступа", 100.00, "buy_access")
+        payment_url = create_payment(chat_id, "Покупка доступа", 300.00, "buy_access")
 
         if payment_url:
             markup = types.InlineKeyboardMarkup()
-            payment_button = types.InlineKeyboardButton("Оплатить 100 рублей", url=payment_url)
+            payment_button = types.InlineKeyboardButton("Оплатить 300 рублей", url=payment_url)
             markup.add(payment_button)
             bot.send_message(chat_id, "Перейдите по ссылке для оплаты:", reply_markup=markup)
         else:
