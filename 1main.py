@@ -140,7 +140,7 @@ def yookassa_webhook():
 
                     # Пополняем баланс на 100 рублей
                     cursor.execute(
-                        "UPDATE balances SET balance = balance + 100 WHERE chat_id = ?",
+                        "UPDATE balances SET balance = balance + 300 WHERE chat_id = ?",
                         (chat_id,)
                     )
 
@@ -150,7 +150,7 @@ def yookassa_webhook():
                 elif payment_type == "top_up_balance":
                     # Пополнение баланса
                     cursor.execute(
-                        "UPDATE balances SET balance = balance + 50 WHERE chat_id = ?",
+                        "UPDATE balances SET balance = balance + 300 WHERE chat_id = ?",
                         (chat_id,)
                     )
                     new_balance = cursor.execute("SELECT balance FROM balances WHERE chat_id = ?", (chat_id,)).fetchone()["balance"]
