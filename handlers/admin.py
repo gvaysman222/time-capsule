@@ -32,20 +32,33 @@ def register_admin_handlers(bot):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Проверяем, есть ли такой пользователь
-        cursor.execute("SELECT * FROM users WHERE chat_id = ?", (user_id,))
-        user = cursor.fetchone()
+        # Проверяем, есть ли такой пользователь с ролью 'member'
+        cursor.execute("SELECT * FROM users WHERE chat_id = ? AND role = 'member'", (user_id,))
+        member = cursor.fetchone()
 
-        if user:
-            bot.reply_to(message, "Пользователь уже существует.")
-        else:
-            # Добавляем тимлида
+        if member:
+            # Если пользователь с ролью 'member' существует, обновляем его до 'leader'
             cursor.execute(
-                "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'leader', 1)",
+                "UPDATE users SET role = 'leader', capsule_id = 0 WHERE chat_id = ? AND role = 'member'",
                 (user_id,)
             )
             conn.commit()
-            bot.send_message(message.chat.id, f"Пользователь {user_id} добавлен как тимлид с капсулой ID 1.")
+            bot.send_message(message.chat.id, f"Пользователю {user_id} обновлена роль на 'лидер' с капсулой ID 0.")
+        else:
+            # Проверяем, есть ли пользователь вообще
+            cursor.execute("SELECT * FROM users WHERE chat_id = ?", (user_id,))
+            user = cursor.fetchone()
+
+            if user:
+                bot.reply_to(message, "Пользователь уже существует с другой ролью.")
+            else:
+                # Если пользователь не существует, добавляем новую запись
+                cursor.execute(
+                    "INSERT INTO users (chat_id, role, capsule_id) VALUES (?, 'leader', 1)",
+                    (user_id,)
+                )
+                conn.commit()
+                bot.send_message(message.chat.id, f"Пользователь {user_id} добавлен как тимлид с капсулой ID 1.")
         conn.close()
 
     @bot.message_handler(func=lambda message: message.chat.id == ADMIN_ID and message.text == "Просмотреть Тимлидов")

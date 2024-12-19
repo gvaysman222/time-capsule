@@ -38,7 +38,6 @@ def start_survey(bot, message, capsule_id):
     # Отправляем первый вопрос
     bot.send_message(chat_id, QUESTIONS[0])
 
-
 # Обработка ответов
 def handle_survey_response(bot, message):
     chat_id = message.chat.id
@@ -64,8 +63,7 @@ def handle_survey_response(bot, message):
         bot.send_message(chat_id, "Спасибо за участие! Ваши ответы сохранены.")
         del active_surveys[chat_id]
 
-
-# Сохранение ответов
+# Сохранение ответов и удаление пользователя
 def save_survey_responses(chat_id, capsule_id, responses):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -79,8 +77,11 @@ def save_survey_responses(chat_id, capsule_id, responses):
         (capsule_id, chat_id, responses_json)
     )
 
+    # Удаляем запись пользователя с ролью member
+    cursor.execute(
+        "DELETE FROM users WHERE chat_id = ? AND role = 'member'",
+        (chat_id,)
+    )
 
     conn.commit()
     conn.close()
-
-

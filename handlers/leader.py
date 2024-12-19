@@ -19,7 +19,7 @@ def register_leader_handlers(bot):
         cursor.execute("INSERT OR IGNORE INTO balances (chat_id, balance) VALUES (?, 0)", (chat_id,))
         conn.commit()
         conn.close()
-    @bot.callback_query_handler(func=lambda call: call.data == "create_capsule")
+
     @bot.callback_query_handler(func=lambda call: call.data == "create_capsule")
     def create_capsule(call):
         chat_id = call.message.chat.id

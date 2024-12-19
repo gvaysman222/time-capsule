@@ -6,14 +6,31 @@ from handlers.leader import register_leader_handlers
 from handlers.member import register_member_handlers
 from handlers.admin import register_admin_handlers
 import json
-# Ваш токен и публичный URL для вебхука
-BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
-WEBHOOK_URL = "https://e3b6-5-101-179-89.ngrok-free.app/" + BOT_TOKEN  # Замените на ваш ngrok URL
+import requests  # Для запросов к ngrok API
 
+# Ваш токен
+BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Flask сервер для вебхука
 app = Flask(__name__)
+
+def get_ngrok_url():
+    """
+    Функция для получения текущего публичного URL ngrok
+    """
+    try:
+        response = requests.get("http://127.0.0.1:4040/api/tunnels")
+        response.raise_for_status()
+        tunnels = response.json().get("tunnels", [])
+        for tunnel in tunnels:
+            if tunnel.get("proto") == "https":
+                return tunnel.get("public_url")
+        app.logger.error("HTTPS туннель не найден.")
+        return None
+    except requests.RequestException as e:
+        app.logger.error(f"Ошибка при подключении к ngrok API: {e}")
+        return None
 
 # Регистрация хендлеров
 register_start_handlers(bot)
@@ -25,48 +42,52 @@ register_admin_handlers(bot)
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     json_string = request.get_data().decode("utf-8")
-    print(f"Получен запрос: {json_string}")  # Логируем запрос
+    app.logger.info(f"Получен запрос: {json_string}")
     if not json_string.strip():
-        print("Ошибка: тело запроса пустое.")
+        app.logger.warning("Ошибка: тело запроса пустое.")
         return "Bad Request: Empty body", 400
 
     try:
         # Проверяем, является ли строка валидным JSON
         data = json.loads(json_string)
-        print(f"Распарсенные данные: {data}")
+        app.logger.info(f"Распарсенные данные: {data}")
     except json.JSONDecodeError as e:
-        print(f"Ошибка парсинга JSON: {e}")
+        app.logger.error(f"Ошибка парсинга JSON: {e}")
         return "Bad Request: Invalid JSON", 400
 
     try:
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
     except Exception as e:
-        print(f"Ошибка при обработке запроса: {e}")
+        app.logger.error(f"Ошибка при обработке запроса: {e}")
         return "Internal Server Error", 500
 
     return "OK", 200
 
-
-
-
 # Эндпоинт для установки вебхука
 @app.route("/set_webhook", methods=["GET"])
 def set_webhook():
-    success = bot.set_webhook(url=WEBHOOK_URL)
-    if success:
-        return f"Webhook установлен: {WEBHOOK_URL}"
-    return "Ошибка при установке вебхука"
+    ngrok_url = get_ngrok_url()
+    if not ngrok_url:
+        return "Не удалось получить URL ngrok", 500
 
+    webhook_url = f"{ngrok_url}/{BOT_TOKEN}"
+    success = bot.set_webhook(url=webhook_url)
+    if success:
+        app.logger.info(f"Webhook установлен: {webhook_url}")
+        return f"Webhook установлен: {webhook_url}"
+    app.logger.error("Ошибка при установке вебхука")
+    return "Ошибка при установке вебхука"
 
 # Эндпоинт для удаления вебхука
 @app.route("/delete_webhook", methods=["GET"])
 def delete_webhook():
     success = bot.delete_webhook()
     if success:
+        app.logger.info("Webhook успешно удалён")
         return "Webhook успешно удалён"
+    app.logger.error("Ошибка при удалении вебхука")
     return "Ошибка при удалении вебхука"
-
 
 @app.route("/yookassa-webhook", methods=["POST"])
 def yookassa_webhook():
@@ -134,6 +155,7 @@ def yookassa_webhook():
                     )
                     new_balance = cursor.execute("SELECT balance FROM balances WHERE chat_id = ?", (chat_id,)).fetchone()["balance"]
                     bot.send_message(chat_id, f"Ваш баланс успешно пополнен на 50 рублей. Текущий баланс: {new_balance} рублей.")
+                    show_leader_menu(bot, chat_id)
 
                 conn.commit()
             print(f"Платеж {payment_id} успешно обработан для пользователя {chat_id}")
@@ -149,6 +171,13 @@ def yookassa_webhook():
 
 
 if __name__ == '__main__':
-    print("Бот запущен...")
+    app.logger.info("Бот запущен...")
+    ngrok_url = get_ngrok_url()
+    if ngrok_url:
+        webhook_url = f"{ngrok_url}/{BOT_TOKEN}"
+        app.logger.info(f"ngrok URL: {webhook_url}")
+        bot.set_webhook(url=webhook_url)
+    else:
+        app.logger.error("Не удалось получить ngrok URL. Убедитесь, что ngrok запущен.")
     # Запуск Flask сервера
-    app.run(debug=True, port=8000)
+    app.run(debug=True, port=5000)
