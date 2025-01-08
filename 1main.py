@@ -9,7 +9,7 @@ import json
 import requests  # Для запросов к ngrok API
 
 # Ваш токен
-BOT_TOKEN = "8172850469:AAEq_qPudr2H27sogDEQvRcqTwucqNMq-1E"
+BOT_TOKEN = ""
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Flask сервер для вебхука
