@@ -3,8 +3,8 @@ from database import get_db_connection
 import uuid
 from yookassa import Configuration, Payment
 
-Configuration.account_id = "999342"  # Замените на ваш shopId
-Configuration.secret_key = "test_oqJzffEIfPKYpd2RJaE4HSsrRYoYwUoam3rr8VlXIxw"  # Замените на ваш секретный ключ
+Configuration.account_id = ""  # Замените на ваш shopId
+Configuration.secret_key = ""  # Замените на ваш секретный ключ
 
 def register_start_handlers(bot):
     @bot.message_handler(commands=['start'])
