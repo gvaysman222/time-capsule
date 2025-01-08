@@ -8,8 +8,8 @@ from telebot.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
 from yookassa import Configuration, Payment
 
 
-Configuration.account_id = "997914"  # Замените на ваш shopId
-Configuration.secret_key = "live_3-ynXKFT0qf9e5AAcHTGKcH2rr0yd4NylIgk7FLIdpE"  # Замените на ваш секретный ключ
+Configuration.account_id = ""  # Замените на ваш shopId
+Configuration.secret_key = ""  # Замените на ваш секретный ключ
 CAPSULE_PRICE = 300
 def register_leader_handlers(bot):
     def ensure_user_balance(chat_id):
