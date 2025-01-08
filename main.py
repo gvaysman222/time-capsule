@@ -5,7 +5,7 @@ from handlers.leader import register_leader_handlers
 from handlers.member import register_member_handlers
 from handlers.admin import register_admin_handlers
 # Ваш токен
-BOT_TOKEN = "5998611067:AAGAorkOfr0PRAn-vZWyUiKxWQ11MhsUUj8"
+BOT_TOKEN = ""
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # Регистрация хендлеров
